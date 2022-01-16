@@ -5,6 +5,8 @@
     <WarnOn>3390;$(WarnOn)</WarnOn>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Types.fs" />
+    <Compile Include="Lexer.fs" />
     <Compile Include="Compiler.fs" />
   </ItemGroup>
 </Project>

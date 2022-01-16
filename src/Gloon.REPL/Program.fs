@@ -3,10 +3,11 @@ open System
 
 [<EntryPoint>]
 let main argv =
-  printf "Enter line: "
+  while true do
+    printf "Enter line: "
 
-  Console.ReadLine()
-  |> Compiler.compile
-  |> printfn "%s"
+    Console.ReadLine()
+    |> Compiler.compile
+    |> printfn "%A"
 
   0
