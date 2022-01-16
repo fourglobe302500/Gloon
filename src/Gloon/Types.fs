@@ -6,6 +6,8 @@ type Span =
     Length: int }
   member t.End = t.Start + t.Length
   static member FromBounds s e = { Start = s; Length = e - s }
+  static member (+)(s1, s2: Span) = Span.FromBounds s1.Start s2.End
+  static member (+)(s, v) = { s with Length = s.Length + v }
 
 type SyntaxNode =
   { Span: Span
@@ -14,7 +16,7 @@ type SyntaxNode =
     { Text = t
       Span = { Start = i; Length = t.Length } }
 
-type LiteralValue =
+type Literal =
   | Int of int
   | Float of float
   | Char of char
@@ -28,7 +30,7 @@ type SyntaxToken =
   | WhiteSpace of SyntaxNode
 
   // Value Tokens
-  | Literal of SyntaxNode * LiteralValue
+  | Literal of SyntaxNode * Literal
   | Identifier of SyntaxNode
 
   //Operator Tokens
