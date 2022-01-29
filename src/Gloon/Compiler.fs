@@ -1,4 +1,6 @@
 ﻿[<RequireQualifiedAccess>]
 module Gloon.Compiler
 
-let compile s = s
+open Gloon
+
+let compile s = Lexer.lex s
