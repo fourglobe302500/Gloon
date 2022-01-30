@@ -88,17 +88,15 @@ let private compresser tokens =
       let fText = t1 + t2
 
       f (Literal(createSN (fText, s1 + s2), Int <| int fText), d) tail flags
-
     // String Parsing
-    | (Literal (SN (t1, s1), String s), d), BackSlash (SN (t2, s2)) :: tail, { MakingString = true } -> // "string + / -> "string/"
-      f (Literal(createSN (t1 + t2, s1 + s2), Literal.String s), d) tail { flags with Escaping = true }
-    | (Literal (SN (t1, s1), String s), d),
-      DoubleQuote (SN (t2, s2)) :: tail,
+    | (Literal (SN _ as node1, String s), d), BackSlash (SN _ as node2) :: tail, { MakingString = true } -> // "string + / -> "string/"
+      f (Literal(node1+node2, Literal.String s), d) tail { flags with Escaping = true }
+    | (Literal (SN _ as node1, String s), d),
+      DoubleQuote (SN _ as node2) :: tail,
       { Escaping = false
         MakingString = true } -> // "string + " -> "string"
-      let fText = t1 + t2
 
-      f (Literal(createSN (fText, s1 + s2), Literal.String s), d) tail { flags with MakingString = false }
+      f (Literal(node1+node2, Literal.String s), d) tail { flags with MakingString = false }
     | (Literal (SN (t1, s1), String s), d), node :: tail, { Escaping = true; MakingString = true } -> // "string/ + char -> "string (error)
       let (t2, t2es, err) =
         let t = SyntaxToken.text node
@@ -125,11 +123,11 @@ let private compresser tokens =
 
       f (Literal(createSN (fText, s1 + 1), Literal.String(s + t2)), d) tail flags
 
-    | (DoubleQuote (SN (t1, s1)), d), DoubleQuote (SN (t2, s2)) :: tail, _ -> // " + " -> ""
-      f (Literal(createSN (t1 + t2, s1 + s2), Literal.String ""), d) tail flags
-    | (DoubleQuote (SN (t1, s1)), d), BackSlash (SN (t2, s2)) :: tail, _ -> // " + / -> "string/
+    | (DoubleQuote (SN _ as node1), d), DoubleQuote (SN _ as node2) :: tail, _ -> // " + " -> ""
+      f (Literal(node1+node2, Literal.String ""), d) tail flags
+    | (DoubleQuote (SN _ as node1), d), BackSlash (SN _ as node2) :: tail, _ -> // " + / -> "string/
       f
-        (Literal(createSN (t1 + t2, s1 + s2), Literal.String ""), d)
+        (Literal(node1+node2, Literal.String ""), d)
         tail
         { flags with
             MakingString = true
@@ -138,8 +136,8 @@ let private compresser tokens =
       f (Literal(createSN (t1 + t2, s1 + s2), Literal.String t2), d) tail { flags with MakingString = true }
 
     // Char Parsing
-    | (Literal (SN (t1, s1), Char s), d), Quote (SN (t2, s2)) :: tail, { Escaping = false; MakingChar = true } -> // 'char + ' -> 'char'
-      f (Literal(createSN (t1 + t2, s1 + s2), Literal.Char s), d) tail { flags with MakingChar = false }
+    | (Literal (SN _ as node1, Char s), d), Quote (SN _ as node2) :: tail, { Escaping = false; MakingChar = true } -> // 'char + ' -> 'char'
+      f (Literal(node1+node2, Literal.Char s), d) tail { flags with MakingChar = false }
     | (Literal (SN (t1, s1), Char s), d), node :: tail, { Escaping = true; MakingChar = true } -> // 'char/ + char -> 'char (error)
       let (t2, t2es, err) =
         let t = SyntaxToken.text node
@@ -160,11 +158,11 @@ let private compresser tokens =
           (Literal(createSN (t1 + t2, s1 + SyntaxToken.span node), Literal.Char(s + t2es)), d)
           tail
           { flags with Escaping = false }
-    | (Quote (SN (t1, s1)), d), Quote (SN (t2, s2)) :: tail, _ -> // ' + ' -> ''
-      f (Literal(createSN (t1 + t2, s1 + s2), Literal.Char '\000'), "Invallid Char  \"''\"" :: d) tail flags
-    | (Quote (SN (t1, s1)), d), BackSlash (SN (t2, s2)) :: tail, _ -> // ' + / -> 'char/
+    | (Quote (SN _ as node1), d), Quote (SN _ as node2) :: tail, _ -> // ' + ' -> ''
+      f (Literal(node1+node2, Literal.Char '\000'), "Invallid Char  \"''\"" :: d) tail flags
+    | (Quote (SN _ as node1), d), BackSlash (SN _ as node2) :: tail, _ -> // ' + / -> 'char/
       f
-        (Literal(createSN (t1 + t2, s1 + s2), Literal.Char '\000'), d)
+        (Literal(node1+node2, Literal.Char '\000'), d)
         tail
         { flags with
             MakingChar = true
@@ -181,43 +179,43 @@ let private compresser tokens =
       | _ -> f (Literal(createSN (t1 + t2, s1 + s2), Literal.Char char), d) tail { flags with MakingChar = true }
 
     // Operators compression
-    | (Star (SN (t1, s1)), d), Star (SN (t2, s2)) :: tail, _ -> // **
-      f (Power(createSN (t1 + t2, s1 + s2)), d) tail flags
-    | (LessThan (SN (t1, s1)), d), Equals (SN (t2, s2)) :: tail, _ -> // <=
-      f (LessThanOrEquals(createSN (t1 + t2, s1 + s2)), d) tail flags
-    | (GreaterThan (SN (t1, s1)), d), Equals (SN (t2, s2)) :: tail, _ -> // >=
-      f (GreaterThanOrEquals(createSN (t1 + t2, s1 + s2)), d) tail flags
-    | (ExclamationMark (SN (t1, s1)), d), Equals (SN (t2, s2)) :: tail, _ -> // !=
-      f (NotEquals(createSN (t1 + t2, s1 + s2)), d) tail flags
-    | (Pipe (SN (t1, s1)), d), Pipe (SN (t2, s2)) :: tail, _ -> // ||
-      f (Or(createSN (t1 + t2, s1 + s2)), d) tail flags
-    | (Ampersant (SN (t1, s1)), d), Ampersant (SN (t2, s2)) :: tail, _ -> // &&
-      f (And(createSN (t1 + t2, s1 + s2)), d) tail flags
+    | (Star (SN _ as node1), d), Star (SN _ as node2) :: tail, _ -> // **
+      f (Power(node1+node2), d) tail flags
+    | (LessThan (SN _ as node1), d), Equals (SN _ as node2) :: tail, _ -> // <=
+      f (LessThanOrEquals(node1+node2), d) tail flags
+    | (GreaterThan (SN _ as node1), d), Equals (SN _ as node2) :: tail, _ -> // >=
+      f (GreaterThanOrEquals(node1+node2), d) tail flags
+    | (ExclamationMark (SN _ as node1), d), Equals (SN _ as node2) :: tail, _ -> // !=
+      f (NotEquals(node1+node2), d) tail flags
+    | (Pipe (SN _ as node1), d), Pipe (SN _ as node2) :: tail, _ -> // ||
+      f (Or(node1+node2), d) tail flags
+    | (Ampersant (SN _ as node1), d), Ampersant (SN _ as node2) :: tail, _ -> // &&
+      f (And(node1+node2), d) tail flags
 
     // Whitespace
     | l, WhiteSpace w :: tail, _ -> l :: f (WhiteSpace w, []) tail flags
 
     // Operators
-    | l, Plus v :: tail, _ -> l :: f (Plus v, []) tail flags
-    | l, Minus v :: tail, _ -> l :: f (Minus v, []) tail flags
-    | l, Star v :: tail, _ -> l :: f (Star v, []) tail flags
-    | l, Slash v :: tail, _ -> l :: f (Slash v, []) tail flags
-    | l, Percent v :: tail, _ -> l :: f (Percent v, []) tail flags
-    | l, OpenParen v :: tail, _ -> l :: f (OpenParen v, []) tail flags
-    | l, OpenBracket v :: tail, _ -> l :: f (OpenBracket v, []) tail flags
-    | l, OpenSquareBracket v :: tail, _ -> l :: f (OpenSquareBracket v, []) tail flags
-    | l, CloseParen v :: tail, _ -> l :: f (CloseParen v, []) tail flags
-    | l, CloseBracket v :: tail, _ -> l :: f (CloseBracket v, []) tail flags
-    | l, CloseSquareBracket v :: tail, _ -> l :: f (CloseSquareBracket v, []) tail flags
-    | l, Dot v :: tail, _ -> l :: f (Dot v, []) tail flags
-    | l, Comma v :: tail, _ -> l :: f (Comma v, []) tail flags
-    | l, Equals v :: tail, _ -> l :: f (Equals v, []) tail flags
-    | l, LessThan v :: tail, _ -> l :: f (LessThan v, []) tail flags
-    | l, GreaterThan v :: tail, _ -> l :: f (GreaterThan v, []) tail flags
-    | l, ExclamationMark v :: tail, _ -> l :: f (ExclamationMark v, []) tail flags
-    | l, QuestionMark v :: tail, _ -> l :: f (QuestionMark v, []) tail flags
-    | l, Pipe v :: tail, _ -> l :: f (Pipe v, []) tail flags
-    | l, Ampersant v :: tail, _ -> l :: f (Ampersant v, []) tail flags
+    | l, (Plus _ as token) :: tail, _ -> l :: f (token, []) tail flags
+    | l, (Minus _ as token) :: tail, _ -> l :: f (token, []) tail flags
+    | l, (Star _ as token) :: tail, _ -> l :: f (token, []) tail flags
+    | l, (Slash _ as token) :: tail, _ -> l :: f (token, []) tail flags
+    | l, (Percent _ as token) :: tail, _ -> l :: f (token, []) tail flags
+    | l, (OpenParen _ as token) :: tail, _ -> l :: f (token, []) tail flags
+    | l, (OpenBracket _ as token) :: tail, _ -> l :: f (token, []) tail flags
+    | l, (OpenSquareBracket _ as token) :: tail, _ -> l :: f (token, []) tail flags
+    | l, (CloseParen _ as token) :: tail, _ -> l :: f (token, []) tail flags
+    | l, (CloseBracket _ as token) :: tail, _ -> l :: f (token, []) tail flags
+    | l, (CloseSquareBracket _ as token) :: tail, _ -> l :: f (token, []) tail flags
+    | l, (Dot _ as token) :: tail, _ -> l :: f (token, []) tail flags
+    | l, (Comma _ as token) :: tail, _ -> l :: f (token, []) tail flags
+    | l, (Equals _ as token) :: tail, _ -> l :: f (token, []) tail flags
+    | l, (LessThan _ as token) :: tail, _ -> l :: f (token, []) tail flags
+    | l, (GreaterThan _ as token) :: tail, _ -> l :: f (token, []) tail flags
+    | l, (ExclamationMark _ as token) :: tail, _ -> l :: f (token, []) tail flags
+    | l, (QuestionMark _ as token) :: tail, _ -> l :: f (token, []) tail flags
+    | l, (Pipe _ as token) :: tail, _ -> l :: f (token, []) tail flags
+    | l, (Ampersant _ as token) :: tail, _ -> l :: f (token, []) tail flags
 
     // Identifier Compression
     | (Identifier (SN (t1, s1)), d), ValideInIdentifier (t2, s2) :: tail, _ -> // identifier + any identifier -> identifier

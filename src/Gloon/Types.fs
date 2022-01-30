@@ -15,6 +15,7 @@ type SyntaxNode =
   static member Basic t i =
     { Text = t
       Span = { Start = i; Length = t.Length } }
+  static member (+) (n1, n2) = {Text = n1.Text + n2.Text; Span = n1.Span+n2.Span}
 
 type Literal =
   | Int of int
